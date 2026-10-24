@@ -188,7 +188,7 @@ dialog h3{margin:0 0 12px;color:var(--navy)}
     <div class="frow"><span class="flabel">Área</span><span id="areas" class="frow" style="gap:6px"></span></div>
     <div class="frow"><span class="flabel">Mostrar</span>
       <select id="selTipo" aria-label="Tipo"></select>
-      <input type="search" id="q" placeholder="Buscar persona…" aria-label="Buscar persona">
+      <input type="search" id="q" name="filtro-persona" autocomplete="off" placeholder="Buscar persona…" aria-label="Buscar persona">
       <button class="pill" id="clear">Limpiar filtros</button>
     </div>
   </section>
@@ -277,8 +277,8 @@ dialog h3{margin:0 0 12px;color:var(--navy)}
     <label class="field">Rama<input id="cBranch" placeholder="main" autocomplete="off"></label>
     <label class="field">Archivo de datos<input id="cPath" placeholder="vacaciones.json" autocomplete="off"></label>
   </div>
-  <label class="field">Token de GitHub (permiso Contents: lectura y escritura, solo ese repositorio)<input type="password" id="cTok" autocomplete="off"></label>
-  <label class="field">Contraseña de los datos (opcional, cifra el archivo)<input type="password" id="cPwdD" autocomplete="off"></label>
+  <label class="field">Token de GitHub (permiso Contents: lectura y escritura, solo ese repositorio)<input type="password" id="cTok" name="gh-token" autocomplete="new-password"></label>
+  <label class="field">Contraseña de los datos (opcional, cifra el archivo)<input type="password" id="cPwdD" name="datos-clave" autocomplete="new-password"></label>
   <div class="prev" id="connMsg" style="display:none"></div>
   <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn" id="connOut">Desconectar</button><button class="btn" id="connPub">Publicar datos actuales</button>
@@ -288,7 +288,7 @@ dialog h3{margin:0 0 12px;color:var(--navy)}
 <dialog id="dPwd">
   <h3>Datos protegidos</h3>
   <div class="note" id="pwdMsg" style="margin:0 0 10px">Escribe la contraseña para ver el tablero.</div>
-  <label class="field">Contraseña<input type="password" id="pwdIn" autocomplete="off"></label>
+  <label class="field">Contraseña<input type="password" id="pwdIn" name="datos-clave-entrada" autocomplete="current-password"></label>
   <label class="pill" style="margin-top:6px"><input type="checkbox" id="pwdRem"> Recordar en este equipo</label>
   <div style="text-align:right;margin-top:14px"><button class="btn primary" id="pwdGo">Entrar</button></div>
 </dialog>
@@ -713,7 +713,9 @@ async function loadRemote(){
       const r=await fetch((GH.path||'vacaciones.json')+'?t='+Date.now(),{cache:'no-store'});
       if(!r.ok)throw new Error('todavía no hay datos publicados');obj=await r.json()}
     if(!obj){$('#src').textContent='Todavía no hay datos publicados en GitHub';return}
-    DATA=fixData(await openPayload(obj));S.areas.clear();S.person=null;prep();buildFilters();S.day=null;renderAll();setSrc();
+    const rem=fixData(await openPayload(obj));
+    if(!rem.records.length&&DATA.records.length){$('#src').textContent='GitHub todavía no tiene registros; se conservan los datos de este archivo. Pulsa Modo capturista → Publicar datos actuales.';return}
+    DATA=rem;S.areas.clear();S.person=null;prep();buildFilters();S.day=null;renderAll();setSrc();
   }catch(e){$('#src').textContent='No pude cargar los datos: '+e.message}}
 
 /* registros */
@@ -753,6 +755,7 @@ $('#connSave').onclick=async()=>{
 };
 $('#connPub').onclick=async()=>{
   readConn();if(!connected()){cmsg('Primero guarda la conexión (repositorio y token).',true);return}
+  if(!DATA.records.length){cmsg('Esta página no tiene registros para publicar. Haz la publicación desde el archivo Tablero_Vacaciones_inicial.html (el que trae tus datos).',true);return}
   if(!confirm('¿Publicar en '+GH.repo+' ('+GH.path+') los datos que ves ahora? Reemplaza lo que haya publicado.'))return;
   cmsg('Publicando…');
   try{saveGH();updateEdit();const copy=JSON.parse(JSON.stringify(DATA));await mutate(d=>{Object.assign(d,copy)},'Publica datos de vacaciones');cmsg('Listo: datos publicados'+((PWD||GH.pwd)?' y cifrados con tu contraseña.':' (sin cifrar).'))}
@@ -769,6 +772,7 @@ applyTheme();
 (function(){
   const n=P(TODAY);S.year=n.getUTCFullYear();S.month=n.getUTCMonth();
   savePend();prep();buildFilters();updateEdit();renderAll();setSrc();
+  S.q='';$('#q').value='';setTimeout(()=>{if($('#q').value){$('#q').value='';S.q='';renderAll()}},400);
   loadRemote();
 })();
 </script>
